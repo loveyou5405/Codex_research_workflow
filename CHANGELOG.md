@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6
+
+- Added Windows PowerShell install, doctor, start, stop, and launcher wrapper scripts.
+- Added Windows installation documentation for Codex MCP, skill, MarkItDown, and Research Console deployment.
+- Updated README guidance so macOS and Windows clone workflows are both explicit.
+
 ## 0.5
 
 - Added portable GitHub deployment support for cloned project paths.

@@ -1,12 +1,12 @@
 # CloakBrowser Research MCP
 
-Version: 0.5
+Version: 0.6
 
 Small MCP bridge for using CloakBrowser as an authorized academic browsing backend.
 
 This bridge is intended for cases where you already have legitimate access through a school network, VPN, institutional proxy, or library login. It does not solve CAPTCHAs, bypass subscriptions, or grant access to materials outside your license.
 
-## Portable Install
+## Portable Install On macOS
 
 From the repository root:
 
@@ -22,6 +22,18 @@ The installer:
 - writes the `cloakbrowser_research` MCP block to `~/.codex/config.toml`;
 - rebuilds the macOS launcher and closer apps for the current clone path;
 - runs `scripts/doctor.sh` plus launcher verification.
+
+Restart Codex after installation.
+
+## Portable Install On Windows
+
+From the repository root:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-portable.ps1
+```
+
+The Windows installer performs the same core deployment: MCP dependencies, `.venv`, MarkItDown, Codex skill install, `cloakbrowser_research` MCP config, and verification. Windows uses `.cmd` wrappers instead of macOS `.app` launchers.
 
 Restart Codex after installation.
 
@@ -50,7 +62,7 @@ Use `CLOAKBROWSER_HEADLESS=false` when publisher login, school SSO, or library p
 
 ## One-Click Research Console
 
-After install, double-click:
+After macOS install, double-click:
 
 ```text
 launchers/CloakBrowser Research Launcher.app
@@ -58,7 +70,13 @@ launchers/CloakBrowser Research Launcher.app
 
 It opens the local HTML Research Console at `http://127.0.0.1:8765`. Use it to choose ARS modes, enter research topics, generate a ready-to-send Codex prompt, open DOI tests through CloakBrowser, allow temporary literature downloads, and clean temporary screenshots/uploads/downloads.
 
-To close test sessions and clean temporary files, double-click:
+On Windows, double-click:
+
+```text
+launchers\Start ARS Research Console.cmd
+```
+
+To close test sessions and clean temporary files on macOS, double-click:
 
 ```text
 launchers/Close CloakBrowser Research Sessions.app
@@ -66,12 +84,24 @@ launchers/Close CloakBrowser Research Sessions.app
 
 This stops the local Research Console, closes launcher test sessions started by `src/open-for-test.js`, and deletes temporary screenshots/logs, uploaded source files, and downloaded literature files. It does not stop Codex's MCP server process.
 
+On Windows, double-click:
+
+```text
+launchers\Close ARS Research Console.cmd
+```
+
 ## Verification
 
 Run this any time after clone or after changing project files:
 
 ```bash
 ./scripts/doctor.sh
+```
+
+On Windows:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\doctor.ps1
 ```
 
 When project files are updated, rebuild and verify launchers:

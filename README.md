@@ -1,6 +1,6 @@
 # ARS Research Console
 
-Version: 0.5
+Version: 0.6
 
 Portable Codex literature-workflow project with:
 
@@ -62,8 +62,48 @@ Run:
 Expected ending:
 
 ```text
-OK: portable deployment v0.5 is installed and verified.
+OK: portable deployment v0.6 is installed and verified.
 ```
+
+## Quick Install On Windows
+
+Prerequisites:
+
+- Codex desktop app installed;
+- Git installed;
+- Node.js with `node` and `npm` available in PATH;
+- Python 3 available as `python` or `py`.
+
+After cloning:
+
+```powershell
+git clone https://github.com/loveyou5405/Codex_research_workflow.git
+cd Codex_research_workflow
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-portable.ps1
+```
+
+Then restart Codex.
+
+Verify:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\doctor.ps1
+```
+
+Expected ending:
+
+```text
+OK: Windows portable deployment v0.6 is installed and verified.
+```
+
+Windows start and stop wrappers:
+
+```text
+launchers\Start ARS Research Console.cmd
+launchers\Close ARS Research Console.cmd
+```
+
+See [docs/WINDOWS_INSTALL.md](docs/WINDOWS_INSTALL.md) for details.
 
 ## GitHub Publishing Checklist
 
@@ -84,7 +124,9 @@ Commit source files, reports, scripts, launchers, `package.json`, `package-lock.
 - `codex/skills/ars-literature-workflow/`: skill copied into `~/.codex/skills`.
 - `launchers/`: macOS launcher and closer app sources and generated apps.
 - `scripts/install-portable.sh`: one-command deployment on a cloned machine.
+- `scripts/install-portable.ps1`: one-command Windows deployment.
 - `scripts/doctor.sh`: deployment health check.
+- `scripts/doctor.ps1`: Windows deployment health check.
 - `scripts/build-cloakbrowser-launcher.sh`: rebuild launcher apps for the current path.
 - `reports/`: final research reports.
 - `downloads/`, `uploads/`, `mcp/cloakbrowser-research/outputs/`: temporary/runtime storage.
