@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ARS Research Console</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17201b;
+      --muted: #5b675f;
+      --line: #d8ddd6;
+      --panel: #ffffff;
+      --soft: #f4f7f2;
+      --accent: #0f6b5f;
+      --accent-2: #7b3f00;
+      --danger: #a33232;
+      --shadow: 0 8px 30px rgba(24, 36, 30, .08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: linear-gradient(180deg, #f8faf6 0, #edf3ef 100%);
+    }
+    header {
+      padding: 24px 28px 16px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255,255,255,.78);
+      position: sticky;
+      top: 0;
+      backdrop-filter: blur(12px);
+      z-index: 2;
+    }
+    h1 { margin: 0; font-size: 24px; letter-spacing: 0; }
+    #versionBadge {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 3px 7px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      background: var(--soft);
+      font-size: 12px;
+      vertical-align: middle;
+    }
+    .sub { margin-top: 6px; color: var(--muted); font-size: 14px; }
+    main {
+      display: grid;
+      grid-template-columns: minmax(280px, 360px) minmax(460px, 1fr);
+      gap: 18px;
+      padding: 18px;
+      max-width: 1320px;
+      margin: 0 auto;
+    }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+      padding: 16px;
+    }
+    h2 { font-size: 16px; margin: 0 0 12px; }
+    h3 { font-size: 13px; margin: 18px 0 8px; color: var(--muted); text-transform: uppercase; }
+    label { display: block; font-size: 13px; font-weight: 650; margin: 12px 0 6px; }
+    input, textarea, select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 10px 11px;
+      font: inherit;
+      background: #fff;
+      color: var(--ink);
+    }
+    textarea { min-height: 116px; resize: vertical; line-height: 1.45; }
+    .checks { display: grid; gap: 8px; margin-top: 8px; }
+    .check {
+      display: grid;
+      grid-template-columns: 20px 1fr;
+      gap: 8px;
+      align-items: start;
+      padding: 9px;
+      background: var(--soft);
+      border: 1px solid #e4e9e2;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    .check input { width: auto; margin-top: 2px; }
+    .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .uploadBox {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--soft);
+    }
+    .uploadMeta { color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .fileList {
+      display: grid;
+      gap: 7px;
+      margin-top: 8px;
+    }
+    .fileItem {
+      padding: 8px;
+      border: 1px solid #e4e9e2;
+      border-radius: 6px;
+      background: #fff;
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+    .fileItem strong { display: block; font-size: 13px; color: var(--ink); }
+    .fileItem span { color: var(--muted); }
+    button {
+      border: 1px solid transparent;
+      border-radius: 6px;
+      padding: 9px 12px;
+      font-weight: 700;
+      cursor: pointer;
+      background: var(--accent);
+      color: #fff;
+    }
+    button.secondary { background: #fff; color: var(--ink); border-color: var(--line); }
+    button.warning { background: var(--accent-2); }
+    button.danger { background: var(--danger); }
+    .mode {
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      margin-bottom: 8px;
+      background: #fff;
+    }
+    .mode strong { display: block; font-size: 13px; }
+    .mode span { color: var(--muted); font-size: 12px; }
+    pre {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      background: #101815;
+      color: #f2fbf5;
+      padding: 14px;
+      border-radius: 8px;
+      min-height: 440px;
+      line-height: 1.5;
+      font-size: 13px;
+    }
+    .status { color: var(--muted); font-size: 13px; margin-top: 8px; min-height: 18px; }
+    @media (max-width: 900px) {
+      main { grid-template-columns: 1fr; }
+      header { position: static; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ARS Research Console <span id="versionBadge">v0.5</span></h1>
+    <div class="sub">填主題、選流程，產生可直接貼給 Codex 的 ARS + CloakBrowser 指令。允許下載外部文獻暫存，關閉時必刪。</div>
+  </header>
+  <main>
+    <section>
+      <h2>研究輸入</h2>
+      <label for="mode">ARS 模式</label>
+      <select id="mode">
+        <option value="deep-research lit-review">deep-research lit-review：文獻回顧</option>
+        <option value="deep-research three-way-scan">deep-research three-way-scan：快速 WHY/HOW/WHAT 掃描</option>
+        <option value="deep-research socratic">deep-research socratic：收斂研究問題</option>
+        <option value="academic-paper outline-only">academic-paper outline：論文大綱</option>
+        <option value="academic-paper citation-check">academic-paper citation-check：引用查核</option>
+        <option value="academic-paper-reviewer full">academic-paper-reviewer：審稿人模式</option>
+        <option value="academic-pipeline full">academic-pipeline full：完整研究到論文流程</option>
+      </select>
+
+      <label for="topic">研究主題 / 問題</label>
+      <textarea id="topic" placeholder="例如：CDK4/6 inhibitor 在 lipid metabolism 與 cancer 領域的研究"></textarea>
+
+      <label for="sourceFiles">上傳自有論文 / 草稿 / 參考資料</label>
+      <div class="uploadBox">
+        <input id="sourceFiles" type="file" multiple>
+        <div class="uploadMeta">可一次選多個檔案；不限制數量與格式，常見 PDF、DOCX、Markdown、CSV 或圖片皆可。AI 會依內容判斷是否先使用 microsoft/markitdown 轉換。</div>
+        <div class="toolbar">
+          <button class="secondary" id="uploadFiles" type="button">上傳到專案</button>
+          <button class="secondary" id="clearUploads" type="button">清空上傳清單</button>
+        </div>
+        <div class="fileList" id="uploadedFiles"></div>
+      </div>
+
+      <label for="outputs">希望輸出</label>
+      <textarea id="outputs">1. 搜尋策略
+2. 搜尋紀錄
+3. 候選文獻表
+4. 文獻矩陣
+5. 研究缺口
+6. 後續精讀清單
+7. 可丟入 ChatGPT 的 report 深度分析 Prompt</textarea>
+
+      <h3>預設規則</h3>
+      <div class="checks">
+        <label class="check"><input id="useCloak" type="checkbox" checked><span>全程優先使用 cloakbrowser_research，因為我目前在學校授權環境。</span></label>
+        <label class="check"><input id="allowDownloads" type="checkbox" checked><span>允許下載 PDF、Word、RIS、BibTeX 或其他外部文獻檔案到專案 downloads 暫存區。</span></label>
+        <label class="check"><input id="markitdownFirst" type="checkbox" checked><span>外部文獻下載後，先判斷是否用 microsoft/markitdown 轉成 Markdown，再閱讀整理。</span></label>
+        <label class="check"><input id="smartAsk" type="checkbox" checked><span>遇到 reCAPTCHA / Cloudflare / access check：metadata 足夠就截圖記錄並繼續；只有需要我登入、確認全文授權、處理 CAPTCHA，或核心文獻無法確認時才問我。</span></label>
+        <label class="check"><input id="chatgptPrompt" type="checkbox" checked><span>output report 末尾附上一段可丟入 ChatGPT 的深度閱讀與謹慎分析 Prompt。</span></label>
+        <label class="check"><input id="cleanup" type="checkbox" checked><span>任務完成後刪除臨時截圖、上傳暫存與下載文獻檔，不刪 reports。</span></label>
+      </div>
+
+      <div class="toolbar">
+        <button id="copy">複製給 Codex</button>
+        <button class="secondary" id="openCodex">打開 Codex</button>
+      </div>
+
+      <h3>手動 DOI 測試</h3>
+      <input id="doi" placeholder="貼 DOI 或 URL，可留空開 Google Scholar">
+      <div class="toolbar">
+        <button class="warning" id="openDoi">用 CloakBrowser 開啟測試</button>
+      </div>
+
+      <h3>清理 / 關閉</h3>
+      <div class="toolbar">
+        <button class="secondary" id="clean">刪除臨時截圖</button>
+        <button class="danger" id="shutdown">關閉本地控制台並清理</button>
+      </div>
+      <div class="status" id="status"></div>
+    </section>
+
+    <section>
+      <h2>ARS 功能速覽</h2>
+      <div class="mode"><strong>deep-research lit-review</strong><span>文獻搜尋、source verification、文獻矩陣、研究缺口。</span></div>
+      <div class="mode"><strong>three-way-scan</strong><span>用 WHY / HOW / WHAT 快速比較少量核心論文。</span></div>
+      <div class="mode"><strong>socratic</strong><span>題目還很模糊時，用問題幫你收斂研究問題。</span></div>
+      <div class="mode"><strong>academic-paper</strong><span>大綱、摘要、文獻回顧段落、引用格式、修改草稿。</span></div>
+      <div class="mode"><strong>citation-check</strong><span>檢查 DOI、引用真實性、metadata 是否對得上。</span></div>
+      <div class="mode"><strong>academic-paper-reviewer</strong><span>模擬審稿人，找方法、論證、證據與寫作問題。</span></div>
+      <div class="mode"><strong>academic-pipeline</strong><span>完整研究到論文流程，含 integrity gate 與階段交接。</span></div>
+
+      <h2>產生的訊息</h2>
+      <pre id="prompt"></pre>
+    </section>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const status = (text) => { $("status").textContent = text; };
+    const uploadedFiles = [];
+
+    function formatBytes(bytes) {
+      if (!Number.isFinite(bytes)) return "未知大小";
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+    }
+
+    function escapeHtml(value) {
+      return String(value || "").replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      }[char]));
+    }
+
+    function renderUploadedFiles() {
+      const list = $("uploadedFiles");
+      if (!uploadedFiles.length) {
+        list.innerHTML = "";
+        return;
+      }
+      list.innerHTML = uploadedFiles.map((file) => `
+        <div class="fileItem">
+          <strong>${escapeHtml(file.name)}</strong>
+          <span>${escapeHtml(file.type || "未標示格式")} · ${formatBytes(file.size)}<br>${escapeHtml(file.path)}</span>
+        </div>
+      `).join("");
+    }
+
+    function buildPrompt() {
+      const lines = [];
+      const mode = $("mode").value;
+      lines.push(`使用 academic-research-suite 的 ${mode} 模式。`);
+      if ($("useCloak").checked) lines.push("全程優先使用 cloakbrowser_research，因為我目前在學校授權環境。");
+      if ($("allowDownloads").checked) lines.push("允許下載 PDF、Word、RIS、BibTeX 或其他外部文獻檔案；所有下載只能放在專案 downloads 暫存區，任務結束或關閉器執行時必須刪除，不得保留在 reports。");
+      if ($("markitdownFirst").checked) lines.push("外部文獻下載後，請先判斷是否需要用 microsoft/markitdown 轉成 Markdown 或純文字再閱讀；PDF、Word、PowerPoint、HTML、Excel/CSV、RIS、BibTeX 等若轉換能改善結構化抽取，請先用 .venv/bin/markitdown 處理，再根據轉換結果閱讀整理。");
+      if ($("smartAsk").checked) lines.push("遇到 reCAPTCHA、Cloudflare、access check 時，若公開 metadata 足夠，請截圖記錄並繼續，不要問我；只有在需要我登入、確認全文授權、處理 CAPTCHA，或核心文獻無法確認時才停下來問我。");
+      if ($("chatgptPrompt").checked) {
+        lines.push("output report 末尾請新增一節「可丟入 ChatGPT 的深度分析 Prompt」。這段 Prompt 要讓我可以上傳你的 report 到 ChatGPT 後直接貼上使用，要求 ChatGPT 以非常深入、審慎、逐步檢查的方式閱讀 report、萃取重點、辨識限制、交叉檢查證據、提出後續研究/寫作建議，且不得誇大 report 沒有支持的結論。");
+        lines.push("請直接使用或微調以下 Prompt 內容，不要只寫『請 ChatGPT 分析』這種空泛文字：");
+        lines.push(`「我已上傳一份由 ARS/Codex 產生的研究 report。請你先完整閱讀整份 report，再以非常深入、審慎、可追溯的方式分析。請不要急著總結；先建立你對 report 結構的理解，再逐步回答。
+
+請完成以下任務：
+1. 用分層方式摘要 report：研究問題、搜尋策略、資料來源、納入/排除邏輯、文獻矩陣、主要發現、反證或不一致處、研究缺口。
+2. 對每個重要 claim 做證據檢查：指出它依賴哪些文獻、metadata、DOI、摘要、全文或 AI 推論；標示支持強度為 strong / moderate / weak / needs verification。
+3. 嚴格區分四類內容：report 已驗證的事實、合理但尚未完全驗證的推論、需要再次查證的問題、目前沒有足夠證據支持的說法。
+4. 檢查 report 是否有過度推論、引用不足、文獻選擇偏差、時間線錯置、方法學漏洞、或把相關性寫成因果性的風險。
+5. 如果我要把這份 report 變成論文、研究計畫、grant proposal、簡報或投稿前草稿，請提出具體結構與修改路線。
+6. 給我一份優先級排序的後續行動清單：哪些文獻要精讀、哪些 citation 要核對、哪些圖表/表格值得補、哪些分析或實驗能最大幅度提高可信度。
+7. 最後請用繁體中文輸出：A) 一頁高密度 executive summary；B) 詳細分析；C) claim-to-evidence 表；D) 風險與限制；E) 下一步建議。
+
+重要規則：不要編造 report 沒有提供的來源或 DOI；若你需要外部知識，請明確標示那是待查證推測。請保持謹慎，寧可指出不確定，也不要給過度確定的結論。」`);
+      }
+      if ($("cleanup").checked) lines.push("任務完成後刪除臨時截圖、uploads 上傳暫存、downloads 下載文獻檔與不必要暫存，不刪除 reports。");
+      lines.push("");
+      lines.push(`主題：${$("topic").value.trim() || "（請在這裡填研究主題）"}`);
+      if (uploadedFiles.length) {
+        lines.push("");
+        lines.push("我已上傳以下自有論文 / 草稿 / 參考資料，請以這些檔案作為可引用的使用者提供材料：");
+        uploadedFiles.forEach((file, index) => {
+          lines.push(`${index + 1}. ${file.name}（${file.type || "未標示格式"}，${formatBytes(file.size)}）：${file.path}`);
+        });
+        lines.push("");
+        lines.push("請先由 AI 判斷每個檔案是否需要使用 microsoft/markitdown 轉成 Markdown 或純文字後再分析；如果 PDF、Word、PowerPoint、HTML、圖片或表格轉換能改善結構化閱讀，請先轉換，否則可直接讀取。");
+        lines.push("若上傳內容包含我自己的論文或草稿，可以在其基礎上做延伸研究、審稿人模擬、修改建議、段落重寫、回覆審稿意見草稿與引用/論證一致性檢查；請清楚區分原文內容、AI 推論與需要外部查證的地方。");
+      }
+      lines.push("請建立：");
+      lines.push($("outputs").value.trim());
+      return lines.join("\n");
+    }
+
+    function refresh() { $("prompt").textContent = buildPrompt(); }
+    document.querySelectorAll("input, textarea, select").forEach((el) => {
+      el.addEventListener("input", refresh);
+      el.addEventListener("change", refresh);
+    });
+    refresh();
+
+    fetch("/api/version").then((res) => res.json()).then((data) => {
+      if (data.ok) $("versionBadge").textContent = `v${data.version}`;
+    }).catch(() => {});
+
+    $("copy").addEventListener("click", async () => {
+      await navigator.clipboard.writeText(buildPrompt());
+      status("已複製。貼到 Codex 對話即可。");
+    });
+
+    $("openCodex").addEventListener("click", async () => {
+      await fetch("/api/open-codex", { method: "POST" });
+      status("已嘗試打開 Codex。");
+    });
+
+    $("uploadFiles").addEventListener("click", async () => {
+      const files = $("sourceFiles").files;
+      if (!files.length) {
+        status("請先選擇要上傳的檔案。");
+        return;
+      }
+      const form = new FormData();
+      for (const file of files) form.append("files", file, file.name);
+      status("上傳中...");
+      const res = await fetch("/api/upload", { method: "POST", body: form });
+      const data = await res.json();
+      if (!data.ok) {
+        status(`上傳失敗：${data.error}`);
+        return;
+      }
+      uploadedFiles.push(...data.files);
+      $("sourceFiles").value = "";
+      renderUploadedFiles();
+      refresh();
+      status(`已上傳 ${data.files.length} 個檔案。`);
+    });
+
+    $("clearUploads").addEventListener("click", () => {
+      uploadedFiles.splice(0, uploadedFiles.length);
+      renderUploadedFiles();
+      refresh();
+      status("已清空上傳清單；專案 uploads 內的檔案不會自動刪除。");
+    });
+
+    $("openDoi").addEventListener("click", async () => {
+      const res = await fetch("/api/open-doi", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ target: $("doi").value })
+      });
+      const data = await res.json();
+      status(data.ok ? `已開啟測試：${data.target}` : `開啟失敗：${data.error}`);
+    });
+
+    $("clean").addEventListener("click", async () => {
+      const res = await fetch("/api/cleanup", { method: "POST" });
+      const data = await res.json();
+      status(data.ok ? `已清理 ${data.deleted.length} 個項目。` : `清理失敗：${data.error}`);
+    });
+
+    $("shutdown").addEventListener("click", async () => {
+      const res = await fetch("/api/shutdown", { method: "POST" });
+      const data = await res.json();
+      status(data.ok ? `已清理 ${data.deleted.length} 個項目並關閉本地控制台。` : `關閉失敗：${data.error}`);
+    });
+  </script>
+</body>
+</html>

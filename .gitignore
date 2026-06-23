@@ -1,0 +1,13 @@
+.DS_Store
+.research-console.log
+.research-console.pid
+.research-console-launcher-app.log
+.venv/
+downloads/*
+uploads/*
+launchers/*.app/
+mcp/cloakbrowser-research/node_modules/
+mcp/cloakbrowser-research/outputs/*
+!downloads/.gitkeep
+!uploads/.gitkeep
+!mcp/cloakbrowser-research/outputs/.gitkeep

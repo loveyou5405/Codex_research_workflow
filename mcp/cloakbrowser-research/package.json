@@ -1,0 +1,19 @@
+{
+  "name": "cloakbrowser-research-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "MCP bridge for authorized academic browsing through CloakBrowser.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "smoke": "node src/server.js --smoke",
+    "test:open": "node src/open-for-test.js",
+    "verify:launcher": "cd ../.. && ./scripts/verify-cloakbrowser-launcher.sh"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.5",
+    "cloakbrowser": "^0.4.0",
+    "playwright-core": "^1.54.2"
+  }
+}
