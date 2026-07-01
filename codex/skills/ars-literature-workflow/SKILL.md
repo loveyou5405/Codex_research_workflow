@@ -26,6 +26,13 @@ Use this skill when the user wants automated literature search, review, manuscri
 
 For literature reviews, include the search strategy, search log, candidate papers, literature matrix, key claims, counterevidence, limitations, research gaps, and next-step reading list.
 
+Every candidate-paper table must include a `DOI / 文獻網址` column with a non-empty value for every row:
+
+- Prefer the paper's verified article-level DOI and normalize it as `https://doi.org/<DOI>`.
+- Verify that the resolved DOI title, authors, and year match the candidate paper. Never guess a DOI or take a DOI from the paper's reference list.
+- Only when the paper genuinely has no DOI, use a verified official publisher, PubMed/PMC, or institutional-repository article URL. Do not use a search-results URL.
+- If neither a DOI nor an official article URL can be obtained, write `未取得 — <reason>` instead of leaving the cell blank.
+
 When PDF preservation is selected, add a `PDF 下載狀態` column to both the candidate-paper table and final included list. Every row must be one of:
 
 - `已下載 — output_PDF/<filename>.pdf` only after confirming the PDF exists on disk.

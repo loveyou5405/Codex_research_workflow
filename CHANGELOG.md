@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0
+
+- Added a mandatory `DOI / 文獻網址` column to every candidate-paper table.
+- Standardized verified DOI values as clickable `https://doi.org/<DOI>` links, with official publisher, PubMed/PMC, or institutional-repository article URLs used only when no DOI exists.
+- Added safeguards against guessed DOI values, search-result URLs, and DOI values accidentally captured from a paper's reference list.
+- Required `未取得 — <reason>` when neither a verified DOI nor an official article URL can be found, so candidate rows never leave the field blank.
+
 ## 0.9
 
 - Changed the opt-in PDF preservation checkbox into a mandatory per-paper PDF acquisition workflow for every paper shown in the report.

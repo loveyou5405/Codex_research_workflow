@@ -1,6 +1,6 @@
 # CloakBrowser Research MCP
 
-Version: 0.9
+Version: 1.0
 
 Small MCP bridge for using CloakBrowser as an authorized academic browsing backend.
 
@@ -138,7 +138,8 @@ subscription journals and publisher pages, including Nature Medicine, Nature
 family journals, The Lancet family, NEJM, Science, Cell, Wiley, Springer Nature,
 Elsevier, and society journals when appropriate. Before browsing, call
 set_download_policy with mode=preserve_pdf. For every candidate and included
-paper, actively search for and attempt a legally accessible PDF download. Mark
+paper, record a verified `https://doi.org/<DOI>` link or official article URL,
+then actively search for and attempt a legally accessible PDF download. Mark
 the report row `已下載 — output_PDF/<filename>.pdf` only after verifying the
 file exists; otherwise write `未下載 — <reason>`. Also add a brief Traditional
 Chinese mechanism summary grounded in verified abstract or full-text evidence;
