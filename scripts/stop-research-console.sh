@@ -31,4 +31,4 @@ if [[ -f "$PID_FILE" ]]; then
 fi
 
 rm -f "$LOG_FILE"
-echo "Research Console stopped and temporary files cleaned."
+echo "Research Console stopped and temporary files cleaned. reports/ and output_PDF/ were preserved."

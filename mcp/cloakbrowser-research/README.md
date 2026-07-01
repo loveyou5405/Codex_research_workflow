@@ -1,6 +1,6 @@
 # CloakBrowser Research MCP
 
-Version: 0.6
+Version: 0.9
 
 Small MCP bridge for using CloakBrowser as an authorized academic browsing backend.
 
@@ -58,7 +58,7 @@ CLOAKBROWSER_BLOCK_FILE_DOWNLOADS = "0"
 
 Use `CLOAKBROWSER_HEADLESS=false` when publisher login, school SSO, or library proxy login requires visible browser interaction.
 
-`CLOAKBROWSER_BLOCK_FILE_DOWNLOADS=0` allows authorized temporary literature downloads into the project `downloads/` directory. The close workflow deletes `downloads/` and `uploads/` contents while retaining `reports/`. Set `CLOAKBROWSER_BLOCK_FILE_DOWNLOADS=1` only when you explicitly want discovery-only browsing.
+`CLOAKBROWSER_BLOCK_FILE_DOWNLOADS=0` allows authorized literature downloads. The default download policy is `temporary`, which stores files under `downloads/`. Call `set_download_policy` with `mode=preserve_pdf` when the user selects PDF preservation. In that mode, the research workflow must actively search for and attempt a legally accessible PDF download for every paper listed in the report. Detected PDFs are moved to `output_PDF/`; unsuccessful attempts must be reported as `未下載 — <reason>`, while non-PDF and conversion files stay temporary. The close workflow deletes `downloads/` and `uploads/` while retaining `output_PDF/` and `reports/`. Set `CLOAKBROWSER_BLOCK_FILE_DOWNLOADS=1` only when you explicitly want discovery-only browsing.
 
 ## One-Click Research Console
 
@@ -68,7 +68,7 @@ After macOS install, double-click:
 launchers/CloakBrowser Research Launcher.app
 ```
 
-It opens the local HTML Research Console at `http://127.0.0.1:8765`. Use it to choose ARS modes, enter research topics, generate a ready-to-send Codex prompt, open DOI tests through CloakBrowser, allow temporary literature downloads, and clean temporary screenshots/uploads/downloads.
+It opens the local HTML Research Console at `http://127.0.0.1:8765`. Use it to choose ARS modes, enter research topics, generate a ready-to-send Codex prompt, request per-paper Chinese mechanism summaries, open DOI tests through CloakBrowser, choose temporary downloads or preserved PDFs, and clean temporary screenshots/uploads/downloads.
 
 On Windows, double-click:
 
@@ -82,7 +82,7 @@ To close test sessions and clean temporary files on macOS, double-click:
 launchers/Close CloakBrowser Research Sessions.app
 ```
 
-This stops the local Research Console, closes launcher test sessions started by `src/open-for-test.js`, and deletes temporary screenshots/logs, uploaded source files, and downloaded literature files. It does not stop Codex's MCP server process.
+This stops the local Research Console, closes launcher test sessions started by `src/open-for-test.js`, and deletes temporary screenshots/logs, uploaded source files, and files under `downloads/`. It preserves `output_PDF/` and `reports/`. It does not stop Codex's MCP server process.
 
 On Windows, double-click:
 
@@ -115,6 +115,7 @@ The verification checks Node scripts, MCP smoke output, MarkItDown, launcher app
 
 ## Tools
 
+- `set_download_policy`: choose `temporary` or `preserve_pdf` before downloading.
 - `open_url`: open a page.
 - `get_text`: extract readable visible text.
 - `screenshot`: save a screenshot under `outputs/`.
@@ -124,7 +125,7 @@ The verification checks Node scripts, MCP smoke output, MarkItDown, launcher app
 
 ## Suggested ARS Workflow
 
-Use `academic-research-suite` for protocol, review, synthesis, and citation integrity. Prefer this MCP throughout browser-backed source discovery, DOI resolution, publisher-page access, metadata extraction, screenshots, and authorization checks.
+Use `academic-research-suite` for protocol, review, synthesis, and citation integrity. Prefer this MCP throughout browser-backed source discovery, DOI resolution, publisher-page access, metadata extraction, screenshots, and authorization checks. When the user confirms legitimate school, library, VPN, institutional, or publisher access, include relevant subscription journals and publisher pages in discovery instead of limiting searches to open-access sources, including venues such as Nature Medicine, Nature family journals, The Lancet family, NEJM, Science, Cell, Wiley, Springer Nature, Elsevier, and society journals when topic-relevant.
 
 Example prompt after restarting Codex:
 
@@ -132,9 +133,16 @@ Example prompt after restarting Codex:
 Use $academic-research-suite in deep-research lit-review mode.
 Prefer cloakbrowser_research for the whole search and publisher-page workflow.
 I have confirmed this is an authorized school network/session. Build a search
-log. You may download PDF, Word, RIS, BibTeX, or related literature files into
-the project downloads directory when it improves reading, citation capture, or
-MarkItDown conversion. Delete downloads after the final report is complete.
+log. Do not limit discovery to open-access sources; actively check topic-relevant
+subscription journals and publisher pages, including Nature Medicine, Nature
+family journals, The Lancet family, NEJM, Science, Cell, Wiley, Springer Nature,
+Elsevier, and society journals when appropriate. Before browsing, call
+set_download_policy with mode=preserve_pdf. For every candidate and included
+paper, actively search for and attempt a legally accessible PDF download. Mark
+the report row `已下載 — output_PDF/<filename>.pdf` only after verifying the
+file exists; otherwise write `未下載 — <reason>`. Also add a brief Traditional
+Chinese mechanism summary grounded in verified abstract or full-text evidence;
+say when mechanistic evidence is insufficient.
 Topic: ...
 ```
 
@@ -152,7 +160,7 @@ Use it to convert downloaded or uploaded literature files before reading when a 
 .venv/bin/markitdown downloads/example.pdf -o downloads/example.md
 ```
 
-Downloaded source files and MarkItDown conversion outputs under `downloads/` are temporary and must be deleted by the close workflow. Keep only synthesized reports under `reports/`.
+Downloaded source files and MarkItDown conversion outputs under `downloads/` are temporary and must be deleted by the close workflow. When `mode=preserve_pdf` is explicitly selected, detected PDFs are retained under `output_PDF/`. Keep synthesized reports under `reports/`.
 
 ## Versioning Rule
 

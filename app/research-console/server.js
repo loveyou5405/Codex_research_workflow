@@ -11,6 +11,7 @@ const bridgeDir = path.join(projectRoot, "mcp/cloakbrowser-research");
 const outputsDir = path.join(bridgeDir, "outputs");
 const uploadsDir = path.join(projectRoot, "uploads");
 const downloadsDir = path.join(projectRoot, "downloads");
+const outputPdfDir = path.join(projectRoot, "output_PDF");
 const npmPath = process.env.CODEX_NPM_PATH || path.join(path.dirname(process.execPath), "npm");
 const nodeBinDir = path.dirname(process.execPath);
 const port = Number(process.env.RESEARCH_CONSOLE_PORT || 8765);
@@ -190,12 +191,14 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && req.url === "/api/open-doi") {
       const body = await readBody(req);
       const target = normalizeTarget(body.target);
+      const downloadMode = body.preservePdfs ? "preserve_pdf" : "temporary";
       const command = [
         `cd ${JSON.stringify(bridgeDir)}`,
         `PATH=${JSON.stringify(`${nodeBinDir}:${process.env.PATH || ""}`)}`,
         "CLOAKBROWSER_RESEARCH_AUTHORIZED=1",
         "CLOAKBROWSER_HUMANIZE=1",
         "CLOAKBROWSER_BLOCK_FILE_DOWNLOADS=0",
+        `CLOAKBROWSER_DOWNLOAD_MODE=${downloadMode}`,
         JSON.stringify(npmPath),
         "run test:open --",
         JSON.stringify(target),
@@ -247,6 +250,11 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(port, "127.0.0.1", async () => {
   const pidPath = path.join(projectRoot, ".research-console.pid");
+  await Promise.all([
+    fs.mkdir(downloadsDir, { recursive: true }),
+    fs.mkdir(uploadsDir, { recursive: true }),
+    fs.mkdir(outputPdfDir, { recursive: true }),
+  ]);
   await fs.writeFile(pidPath, String(process.pid));
   console.log(`Research Console listening on http://127.0.0.1:${port}`);
 });

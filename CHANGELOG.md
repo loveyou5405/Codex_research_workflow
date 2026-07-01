@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.9
+
+- Changed the opt-in PDF preservation checkbox into a mandatory per-paper PDF acquisition workflow for every paper shown in the report.
+- Required an actual download attempt through legal publisher, repository, or authorized institutional routes even when abstract, metadata, or HTML full text is already available.
+- Added a required `PDF 下載狀態` field with verified `已下載` paths or explicit `未下載 — <reason>` results, plus downloaded/not-downloaded totals.
+
+## 0.8
+
+- Added an opt-in PDF preservation policy: detected literature PDFs can be retained under `output_PDF/`, while the default policy keeps all downloads temporary under `downloads/`.
+- Added the `cloakbrowser_research.set_download_policy` tool and connected the HTML console plus manual DOI test flow to temporary versus preserved-PDF modes.
+- Kept cleanup behavior safe by deleting `downloads/`, `uploads/`, screenshots, and conversion artifacts while never deleting `output_PDF/` or `reports/`.
+- Added a default per-paper Traditional Chinese mechanism-summary prompt with explicit evidence and non-fabrication guardrails.
+
+## 0.7
+
+- Added explicit literature-search guidance to include authorized subscription journals and publisher pages, including high-impact venues such as Nature Medicine when topic-relevant.
+- Added the same rule to the HTML Research Console prompt generator and installed ARS literature workflow skill.
+
 ## 0.6
 
 - Added Windows PowerShell install, doctor, start, stop, and launcher wrapper scripts.

@@ -47,7 +47,7 @@ if [[ -z "$PYTHON" || ! -x "$PYTHON" ]]; then
   exit 1
 fi
 
-mkdir -p "$PROJECT_ROOT/downloads" "$PROJECT_ROOT/uploads" "$PROJECT_ROOT/mcp/cloakbrowser-research/outputs"
+mkdir -p "$PROJECT_ROOT/downloads" "$PROJECT_ROOT/output_PDF" "$PROJECT_ROOT/uploads" "$PROJECT_ROOT/mcp/cloakbrowser-research/outputs"
 
 echo "Installing MCP dependencies..."
 (cd "$PROJECT_ROOT/mcp/cloakbrowser-research" && PATH="$(dirname "$NODE"):$PATH" "$NPM" install)

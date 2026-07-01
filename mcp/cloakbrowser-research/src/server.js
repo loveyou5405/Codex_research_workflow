@@ -12,11 +12,13 @@ import { launch } from "cloakbrowser";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_OUTPUT_DIR = path.resolve(__dirname, "..", "outputs");
 const DEFAULT_DOWNLOAD_DIR = path.resolve(__dirname, "..", "..", "..", "downloads");
+const DEFAULT_PDF_OUTPUT_DIR = path.resolve(__dirname, "..", "..", "..", "output_PDF");
 
 let browser = null;
 let page = null;
 let downloadsBlocked = false;
 let downloadsSaved = false;
+let downloadPolicy = "temporary";
 
 function textResult(text) {
   return { content: [{ type: "text", text }] };
@@ -59,6 +61,40 @@ function shouldBlockFileDownloads() {
   return process.env.CLOAKBROWSER_BLOCK_FILE_DOWNLOADS === "1";
 }
 
+function normalizeDownloadPolicy(value) {
+  return value === "preserve_pdf" ? "preserve_pdf" : "temporary";
+}
+
+async function isPdfFile(filePath, suggestedName) {
+  if (/\.pdf$/i.test(suggestedName)) return true;
+  const handle = await fs.open(filePath, "r");
+  try {
+    const header = Buffer.alloc(5);
+    const { bytesRead } = await handle.read(header, 0, header.length, 0);
+    return bytesRead === 5 && header.toString("ascii") === "%PDF-";
+  } finally {
+    await handle.close();
+  }
+}
+
+async function saveLiteratureDownload(download) {
+  await fs.mkdir(DEFAULT_DOWNLOAD_DIR, { recursive: true });
+  const suggestedName = path.basename(download.suggestedFilename() || "downloaded-literature-file");
+  const temporaryPath = path.join(DEFAULT_DOWNLOAD_DIR, `${Date.now()}-${suggestedName}`);
+  await download.saveAs(temporaryPath);
+
+  if (downloadPolicy !== "preserve_pdf" || !(await isPdfFile(temporaryPath, suggestedName))) {
+    console.error(`Saved temporary download: ${temporaryPath}`);
+    return;
+  }
+
+  await fs.mkdir(DEFAULT_PDF_OUTPUT_DIR, { recursive: true });
+  const pdfName = /\.pdf$/i.test(suggestedName) ? suggestedName : `${suggestedName}.pdf`;
+  const preservedPath = path.join(DEFAULT_PDF_OUTPUT_DIR, `${Date.now()}-${pdfName}`);
+  await fs.rename(temporaryPath, preservedPath);
+  console.error(`Preserved PDF download: ${preservedPath}`);
+}
+
 function looksLikeDocumentDownload(url) {
   try {
     const parsed = new URL(url);
@@ -74,11 +110,11 @@ async function configurePage(activePage) {
   if (!shouldBlockFileDownloads()) {
     if (downloadsSaved) return;
     activePage.on("download", async (download) => {
-      await fs.mkdir(DEFAULT_DOWNLOAD_DIR, { recursive: true });
-      const safeName = path.basename(download.suggestedFilename() || "downloaded-literature-file");
-      const outputPath = path.join(DEFAULT_DOWNLOAD_DIR, `${Date.now()}-${safeName}`);
-      await download.saveAs(outputPath);
-      console.error(`Saved download: ${outputPath}`);
+      try {
+        await saveLiteratureDownload(download);
+      } catch (error) {
+        console.error(`Download save failed: ${error.message || error}`);
+      }
     });
     downloadsSaved = true;
     return;
@@ -110,6 +146,7 @@ async function closeSession() {
   }
   browser = null;
   page = null;
+  downloadPolicy = "temporary";
 }
 
 async function getReadableText(activePage) {
@@ -133,6 +170,22 @@ async function getReadableText(activePage) {
 }
 
 const tools = [
+  {
+    name: "set_download_policy",
+    description:
+      "Choose whether authorized literature downloads are temporary or whether PDF files are preserved under output_PDF. With preserve_pdf, actively search for and attempt a legal PDF download for every paper listed in the report, then record either the verified file path or a not-downloaded reason. Non-PDF files always remain temporary.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        mode: {
+          type: "string",
+          enum: ["temporary", "preserve_pdf"],
+          description: "temporary saves all files under downloads; preserve_pdf requires per-report-paper PDF attempts and moves detected PDFs to output_PDF.",
+        },
+      },
+      required: ["mode"],
+    },
+  },
   {
     name: "open_url",
     description:
@@ -175,7 +228,7 @@ const tools = [
   {
     name: "click",
     description:
-      "Click an element by CSS selector on the current page. File-like downloads are saved under the project downloads directory unless CLOAKBROWSER_BLOCK_FILE_DOWNLOADS=1.",
+      "Click an element by CSS selector on the current page. Downloads follow set_download_policy unless CLOAKBROWSER_BLOCK_FILE_DOWNLOADS=1.",
     inputSchema: {
       type: "object",
       properties: {
@@ -206,6 +259,19 @@ const tools = [
 
 async function callTool(name, args = {}) {
   switch (name) {
+    case "set_download_policy": {
+      downloadPolicy = normalizeDownloadPolicy(args.mode);
+      const destination = downloadPolicy === "preserve_pdf"
+        ? DEFAULT_PDF_OUTPUT_DIR
+        : DEFAULT_DOWNLOAD_DIR;
+      return textResult(
+        `Download policy set to ${downloadPolicy}. Primary destination: ${destination}. ` +
+        "Non-PDF files remain temporary under downloads." +
+        (downloadPolicy === "preserve_pdf"
+          ? " Workflow requirement: attempt a legally accessible PDF for every report paper and record either 已下載 with its output_PDF path or 未下載 with a reason."
+          : "")
+      );
+    }
     case "open_url": {
       const activePage = await ensurePage();
       await activePage.goto(args.url, { waitUntil: args.waitUntil || "domcontentloaded" });

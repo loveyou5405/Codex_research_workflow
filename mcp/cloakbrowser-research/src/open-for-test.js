@@ -8,8 +8,21 @@ import { launch } from "cloakbrowser";
 const targetUrl = process.argv[2] || "https://scholar.google.com";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const downloadsDir = path.resolve(__dirname, "..", "..", "..", "downloads");
+const outputPdfDir = path.resolve(__dirname, "..", "..", "..", "output_PDF");
 let browser = null;
 let closing = false;
+
+async function isPdfFile(filePath, suggestedName) {
+  if (/\.pdf$/i.test(suggestedName)) return true;
+  const handle = await fs.open(filePath, "r");
+  try {
+    const header = Buffer.alloc(5);
+    const { bytesRead } = await handle.read(header, 0, header.length, 0);
+    return bytesRead === 5 && header.toString("ascii") === "%PDF-";
+  } finally {
+    await handle.close();
+  }
+}
 
 function looksLikeDocumentDownload(url) {
   try {
@@ -55,9 +68,20 @@ async function main() {
     page.on("download", async (download) => {
       await fs.mkdir(downloadsDir, { recursive: true });
       const safeName = path.basename(download.suggestedFilename() || "downloaded-literature-file");
-      const outputPath = path.join(downloadsDir, `${Date.now()}-${safeName}`);
-      await download.saveAs(outputPath);
-      console.log(`Saved download: ${outputPath}`);
+      const temporaryPath = path.join(downloadsDir, `${Date.now()}-${safeName}`);
+      await download.saveAs(temporaryPath);
+      if (
+        process.env.CLOAKBROWSER_DOWNLOAD_MODE === "preserve_pdf" &&
+        await isPdfFile(temporaryPath, safeName)
+      ) {
+        await fs.mkdir(outputPdfDir, { recursive: true });
+        const pdfName = /\.pdf$/i.test(safeName) ? safeName : `${safeName}.pdf`;
+        const outputPath = path.join(outputPdfDir, `${Date.now()}-${pdfName}`);
+        await fs.rename(temporaryPath, outputPath);
+        console.log(`Preserved PDF download: ${outputPath}`);
+      } else {
+        console.log(`Saved temporary download: ${temporaryPath}`);
+      }
     });
   }
 
