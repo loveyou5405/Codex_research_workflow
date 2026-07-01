@@ -1,6 +1,8 @@
 # CloakBrowser Research MCP
 
-Version: 1.0
+Version: 1.1
+
+V1.1 keeps DOI checks in one reusable browser tab and adds migration-safe PMC PDF resolution through the current Cloud Service layout.
 
 Small MCP bridge for using CloakBrowser as an authorized academic browsing backend.
 
@@ -116,7 +118,8 @@ The verification checks Node scripts, MCP smoke output, MarkItDown, launcher app
 ## Tools
 
 - `set_download_policy`: choose `temporary` or `preserve_pdf` before downloading.
-- `open_url`: open a page.
+- `open_url`: reuse the current browser page/tab and navigate to the next URL.
+- `resolve_pmc_pdf`: resolve the current PMC Cloud article-version PDF; during the 2026 transition it can correct a freshly returned OA package to the moved `deprecated` HTTPS path, extract the article PDF, and verify it.
 - `get_text`: extract readable visible text.
 - `screenshot`: save a screenshot under `outputs/`.
 - `click`: click a CSS selector.

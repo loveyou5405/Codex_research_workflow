@@ -18,9 +18,16 @@ Use this skill when the user wants automated literature search, review, manuscri
 
 ## Browser Rules
 
+- Reuse one `cloakbrowser_research` session and the same page/tab for a batch of DOI or official-URL checks. Navigate sequentially with `open_url`, equivalent to pasting each next URL into the same address bar. Do not relaunch Terminal, the browser, or a new window for each paper; close the session only after the batch is complete.
 - If a site shows reCAPTCHA, Cloudflare, "Just a moment", SSO, or a publisher access check, stop bypass attempts early.
 - If metadata is enough, record the issue and continue through official metadata sources such as PubMed, DOI/Crossref, NCBI E-utilities, or the publisher abstract page.
 - Ask the user only when they need to log in, confirm authorization, handle a CAPTCHA, or decide whether a core article needs full text.
+
+## PMC PDF Resolution
+
+- For a PubMed Central paper, call `cloakbrowser_research.resolve_pmc_pdf` with its PMCID. This resolver prefers the current PMC Cloud Service article-version object (`pmc-oa-opendata/PMC….version/`) and can save a verified PDF according to the active download policy.
+- Never reuse or cache an OA API FTP link from an earlier run. The April 2026 PMC migration moved legacy paths under `deprecated`, and those transitional legacy objects are scheduled for removal in August 2026.
+- Only when no current Cloud PDF object exists may the resolver use the fresh OA API response from the same run. During the April-August 2026 transition it corrects the moved package path to `deprecated`, uses HTTPS, extracts the article PDF, and verifies its file signature. If neither route yields a verified PDF, record `未下載 — PMC 新版 Cloud 與即時 OA 連結皆無可用 PDF` rather than treating HTML as a PDF.
 
 ## Report Expectations
 

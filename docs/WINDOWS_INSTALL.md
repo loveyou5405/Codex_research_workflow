@@ -1,6 +1,6 @@
 # Windows Install
 
-Version: 1.0
+Version: 1.1
 
 This project now includes a Windows deployment path that mirrors the macOS setup without AppleScript or `.app` launchers.
 
@@ -44,7 +44,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\doctor.ps1
 Expected ending:
 
 ```text
-OK: Windows portable deployment v1.0 is installed and verified.
+OK: Windows portable deployment v1.1 is installed and verified.
 ```
 
 ## Start And Stop

@@ -1,5 +1,5 @@
 import readline from "node:readline/promises";
-import { stdin as input, stdout as output } from "node:process";
+import { stdin as input } from "node:process";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -85,20 +85,33 @@ async function main() {
     });
   }
 
-  await page.goto(targetUrl, { waitUntil: "domcontentloaded" });
-  console.log(`Opened: ${page.url()}`);
-  console.log(`Title: ${await page.title()}`);
-  console.log("Use the visible browser window to test school login or paid-wall access.");
-  console.log("Press Enter here to close the test browser.");
+  const navigate = async (target) => {
+    await page.goto(target, { waitUntil: "domcontentloaded" });
+    console.log(`Opened in reusable tab: ${page.url()}`);
+    console.log(`Title: ${await page.title()}`);
+  };
 
-  const rl = readline.createInterface({ input, output });
+  await navigate(targetUrl);
+  console.log("Use the visible browser window to test school login or paid-wall access.");
+  console.log("Further DOI/URL checks will be pasted into this same tab.");
+
+  const rl = readline.createInterface({ input, terminal: false });
   page.on("close", async () => {
+    rl.close();
     await cleanup("Browser page was closed.");
     process.exit(0);
   });
-  await rl.question("");
-  rl.close();
-  await cleanup("Closed by terminal Enter.");
+  for await (const line of rl) {
+    const nextTarget = line.trim();
+    if (!nextTarget) continue;
+    if (nextTarget === "__CLOSE__") break;
+    try {
+      await navigate(nextTarget);
+    } catch (error) {
+      console.error(`Navigation failed for ${nextTarget}: ${error.message || error}`);
+    }
+  }
+  await cleanup("Reusable DOI test browser closed.");
 }
 
 async function cleanup(reason) {

@@ -1,4 +1,4 @@
-property toolVersion : "1.0"
+property toolVersion : "1.1"
 
 on run
 	set launcherPath to POSIX path of ((path to me) as text)

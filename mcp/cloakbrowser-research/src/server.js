@@ -8,6 +8,7 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { launch } from "cloakbrowser";
+import * as tar from "tar";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_OUTPUT_DIR = path.resolve(__dirname, "..", "outputs");
@@ -22,6 +23,174 @@ let downloadPolicy = "temporary";
 
 function textResult(text) {
   return { content: [{ type: "text", text }] };
+}
+
+function decodeXml(value) {
+  return String(value || "")
+    .replaceAll("&amp;", "&")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&apos;", "'")
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">");
+}
+
+function parseXmlAttributes(fragment) {
+  const attributes = {};
+  for (const match of fragment.matchAll(/([\w:-]+)\s*=\s*(["'])(.*?)\2/g)) {
+    attributes[match[1]] = decodeXml(match[3]);
+  }
+  return attributes;
+}
+
+function normalizePmcid(value) {
+  const match = String(value || "").trim().toUpperCase().match(/(?:PMC)?(\d+)/);
+  if (!match) throw new Error("PMCID must look like PMC123456 or 123456.");
+  return `PMC${match[1]}`;
+}
+
+function s3UriToHttps(value) {
+  const match = String(value || "").match(/^s3:\/\/pmc-oa-opendata\/(.+?)(?:\?.*)?$/i);
+  return match
+    ? `https://pmc-oa-opendata.s3.amazonaws.com/${match[1].split("/").map(encodeURIComponent).join("/")}`
+    : value;
+}
+
+function normalizeFreshOaUrl(value) {
+  return String(value || "")
+    .replace(/^ftp:\/\/ftp\.ncbi\.nlm\.nih\.gov\//i, "https://ftp.ncbi.nlm.nih.gov/")
+    .replace(/\/pub\/pmc\/(oa_package|manuscript_package)\//i, "/pub/pmc/deprecated/$1/");
+}
+
+async function fetchText(url) {
+  const response = await fetch(url, { headers: { "user-agent": "CodexResearchWorkflow/1.1" } });
+  if (!response.ok) throw new Error(`${response.status} ${response.statusText} for ${url}`);
+  return response.text();
+}
+
+async function resolvePmcPdf(pmcidInput, { skipCloud = false } = {}) {
+  const pmcid = normalizePmcid(pmcidInput);
+  const prefix = `${pmcid}.`;
+  const listUrl = `https://pmc-oa-opendata.s3.amazonaws.com/?list-type=2&prefix=${encodeURIComponent(prefix)}`;
+  const candidates = [];
+  let metadata = null;
+
+  if (!skipCloud) {
+    try {
+      const listing = await fetchText(listUrl);
+      const keys = [...listing.matchAll(/<Key>(.*?)<\/Key>/g)].map((match) => decodeXml(match[1]));
+      const versions = keys
+        .map((key) => ({ key, match: key.match(new RegExp(`^${pmcid}\\.(\\d+)\\/${pmcid}\\.\\1\\.json$`)) }))
+        .filter((item) => item.match)
+        .sort((a, b) => Number(b.match[1]) - Number(a.match[1]));
+      if (versions.length) {
+        const metadataUrl = `https://pmc-oa-opendata.s3.amazonaws.com/${versions[0].key}`;
+        metadata = JSON.parse(await fetchText(metadataUrl));
+        if (metadata.is_pmc_openaccess && metadata.pdf_url) {
+          candidates.push({
+            source: "pmc_cloud",
+            format: "pdf",
+            url: s3UriToHttps(metadata.pdf_url),
+            version: metadata.version,
+            license: metadata.license_code || null,
+          });
+        }
+      }
+    } catch (error) {
+      console.error(`PMC Cloud lookup failed for ${pmcid}: ${error.message || error}`);
+    }
+  }
+
+  if (!candidates.length) {
+    try {
+      const oaUrl = `https://www.ncbi.nlm.nih.gov/pmc/utils/oa/oa.fcgi?id=${encodeURIComponent(pmcid)}`;
+      const xml = await fetchText(oaUrl);
+      const record = parseXmlAttributes(xml.match(/<record\b([^>]*)>/i)?.[1] || "");
+      for (const match of xml.matchAll(/<link\b([^>]*)\/?\s*>/gi)) {
+        const link = parseXmlAttributes(match[1]);
+        const format = String(link.format || "").toLowerCase();
+        if (!link.href || !["pdf", "tgz"].includes(format)) continue;
+        const url = normalizeFreshOaUrl(link.href);
+        if (!candidates.some((candidate) => candidate.url === url)) {
+          candidates.push({
+            source: format === "tgz" ? "fresh_oa_api_deprecated_package" : "fresh_oa_api",
+            format,
+            url,
+            license: record.license || null,
+          });
+        }
+      }
+    } catch (error) {
+      console.error(`Fresh PMC OA API lookup failed for ${pmcid}: ${error.message || error}`);
+    }
+  }
+
+  return { pmcid, metadata, candidates };
+}
+
+async function downloadPmcPdf(resolution) {
+  const failures = [];
+  for (const candidate of resolution.candidates) {
+    let archivePath = null;
+    let extractionDir = null;
+    try {
+      const response = await fetch(candidate.url, { headers: { "user-agent": "CodexResearchWorkflow/1.1" } });
+      if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+      const data = Buffer.from(await response.arrayBuffer());
+      let pdfData = data;
+      let rawName = path.basename(new URL(candidate.url).pathname) || `${resolution.pmcid}.pdf`;
+
+      if (candidate.format === "tgz") {
+        await fs.mkdir(DEFAULT_DOWNLOAD_DIR, { recursive: true });
+        const token = `${Date.now()}-${process.pid}`;
+        archivePath = path.join(DEFAULT_DOWNLOAD_DIR, `${token}-${resolution.pmcid}.tar.gz`);
+        extractionDir = path.join(DEFAULT_DOWNLOAD_DIR, `${token}-${resolution.pmcid}`);
+        await fs.writeFile(archivePath, data);
+        await fs.mkdir(extractionDir, { recursive: true });
+        await tar.extract({
+          cwd: extractionDir,
+          file: archivePath,
+          strict: true,
+          filter: (entryPath) => /\.pdf$/i.test(entryPath),
+        });
+        const discovered = [];
+        const pending = [extractionDir];
+        while (pending.length) {
+          const current = pending.pop();
+          for (const entry of await fs.readdir(current, { withFileTypes: true })) {
+            const entryPath = path.join(current, entry.name);
+            if (entry.isDirectory()) pending.push(entryPath);
+            else if (/\.pdf$/i.test(entry.name)) discovered.push(entryPath);
+          }
+        }
+        if (!discovered.length) throw new Error("OA package contains no PDF");
+        const ranked = await Promise.all(discovered.map(async (filePath) => ({
+          filePath,
+          size: (await fs.stat(filePath)).size,
+          preferred: path.basename(filePath).toUpperCase().startsWith(resolution.pmcid),
+        })));
+        ranked.sort((a, b) => Number(b.preferred) - Number(a.preferred) || b.size - a.size);
+        pdfData = await fs.readFile(ranked[0].filePath);
+        rawName = path.basename(ranked[0].filePath);
+      }
+
+      if (pdfData.subarray(0, 5).toString("ascii") !== "%PDF-") {
+        throw new Error("resolved file is not a PDF");
+      }
+      const safeName = /\.pdf$/i.test(rawName) ? rawName : `${rawName}.pdf`;
+      const destinationDir = downloadPolicy === "preserve_pdf" ? DEFAULT_PDF_OUTPUT_DIR : DEFAULT_DOWNLOAD_DIR;
+      const destinationName = downloadPolicy === "preserve_pdf" ? safeName : `${Date.now()}-${safeName}`;
+      await fs.mkdir(destinationDir, { recursive: true });
+      const destination = path.join(destinationDir, destinationName);
+      await fs.writeFile(destination, pdfData);
+      return { ...candidate, path: destination, bytes: pdfData.length };
+    } catch (error) {
+      failures.push({ source: candidate.source, url: candidate.url, error: String(error.message || error) });
+    } finally {
+      if (archivePath) await fs.rm(archivePath, { force: true }).catch(() => {});
+      if (extractionDir) await fs.rm(extractionDir, { recursive: true, force: true }).catch(() => {});
+    }
+  }
+  return { failures };
 }
 
 function requireAuthorizedPurpose() {
@@ -189,7 +358,7 @@ const tools = [
   {
     name: "open_url",
     description:
-      "Open a URL in CloakBrowser for authorized academic research access through the user's institution, VPN, proxy, or existing network. Prefer this tool throughout literature search workflows.",
+      "Navigate the current reusable CloakBrowser page to a URL for authorized academic research access. Reuse this same session and tab for sequential DOI checks; do not open a new browser window for every paper.",
     inputSchema: {
       type: "object",
       properties: {
@@ -201,6 +370,19 @@ const tools = [
         },
       },
       required: ["url"],
+    },
+  },
+  {
+    name: "resolve_pmc_pdf",
+    description:
+      "Resolve a PMCID against the current PMC Cloud Service article-version dataset. During the 2026 transition, fall back only to a freshly queried OA API package whose moved deprecated path is corrected, then extract and verify its PDF. Optionally download under the active policy; never relies on a cached legacy FTP path.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        pmcid: { type: "string", description: "PubMed Central ID, for example PMC3257301." },
+        download: { type: "boolean", default: false, description: "Download and verify the resolved PDF when true." },
+      },
+      required: ["pmcid"],
     },
   },
   {
@@ -277,6 +459,19 @@ async function callTool(name, args = {}) {
       await activePage.goto(args.url, { waitUntil: args.waitUntil || "domcontentloaded" });
       return textResult(`Opened ${activePage.url()}\nTitle: ${await activePage.title()}`);
     }
+    case "resolve_pmc_pdf": {
+      requireAuthorizedPurpose();
+      const resolution = await resolvePmcPdf(args.pmcid);
+      const downloaded = args.download ? await downloadPmcPdf(resolution) : null;
+      return textResult(JSON.stringify({
+        pmcid: resolution.pmcid,
+        title: resolution.metadata?.title || null,
+        doi: resolution.metadata?.doi || null,
+        license: resolution.metadata?.license_code || resolution.candidates[0]?.license || null,
+        candidates: resolution.candidates,
+        downloaded,
+      }, null, 2));
+    }
     case "get_text": {
       const activePage = await ensurePage();
       const maxChars = Number(args.maxChars || 12000);
@@ -340,7 +535,20 @@ async function runServer() {
   await server.connect(transport);
 }
 
-if (process.argv.includes("--smoke")) {
+const resolveIndex = process.argv.findIndex((arg) => arg === "--resolve-pmc" || arg === "--download-pmc");
+if (resolveIndex !== -1) {
+  const shouldDownload = process.argv[resolveIndex] === "--download-pmc";
+  downloadPolicy = normalizeDownloadPolicy(process.env.CLOAKBROWSER_DOWNLOAD_MODE);
+  resolvePmcPdf(process.argv[resolveIndex + 1], {
+    skipCloud: process.argv.includes("--force-oa"),
+  }).then(async (result) => {
+    const downloaded = shouldDownload ? await downloadPmcPdf(result) : null;
+    console.log(JSON.stringify({ ...result, downloaded }, null, 2));
+  }).catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+} else if (process.argv.includes("--smoke")) {
   runSmoke().catch((error) => {
     console.error(error);
     process.exit(1);

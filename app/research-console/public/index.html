@@ -153,7 +153,7 @@
 </head>
 <body>
   <header>
-    <h1>ARS Research Console <span id="versionBadge">v1.0</span></h1>
+    <h1>ARS Research Console <span id="versionBadge">v1.1</span></h1>
     <div class="sub">填主題、選流程，產生可直接貼給 Codex 的 ARS + CloakBrowser 指令。候選文獻表固定記錄 DOI 或官方文獻網址。</div>
   </header>
   <main>
@@ -294,10 +294,12 @@
       if ($("includeLicensed").checked) lines.push("搜尋策略不要只限 open-access；請主動納入可能需要付費牆但可透過學校/機構授權閱讀的高影響期刊與出版社頁面，例如 Nature Medicine、Nature 系列、The Lancet 系列、NEJM、Science、Cell、Wiley、Springer Nature、Elsevier 與相關學會期刊。只使用合法授權存取，不繞過 paywall、訂閱、CAPTCHA 或 access control。");
       lines.push("候選文獻表必須新增「DOI / 文獻網址」欄位，並為每一篇候選文獻填寫。優先從該文章本身的 article-level metadata 核對 DOI，以可點擊的標準格式 `https://doi.org/<DOI>` 記錄；只有文獻確實沒有 DOI 時，才改填已核對的官方出版社、PubMed/PMC 或機構存放庫文獻頁網址。若 DOI 與官方文獻網址都無法取得，必須寫「未取得 — <原因>」，不得留白。");
       lines.push("每個 DOI 都必須核對其解析後的標題、作者與年份和目標文獻一致；不得猜測 DOI、使用搜尋結果頁網址，或從參考文獻清單誤抓其他文章的 DOI。");
+      lines.push("批次核對 DOI / 文獻網址時，必須重用同一個 cloakbrowser_research session 與同一個頁籤，逐筆用 open_url 在原頁籤貼上並導向下一個網址；不得為每篇文獻重啟 Terminal、瀏覽器或新增視窗。整批核對完成後才關閉 session。");
       if ($("allowDownloads").checked && $("preservePdfs").checked) {
         lines.push("開始瀏覽前，請先呼叫 cloakbrowser_research 的 set_download_policy，設定 mode=preserve_pdf。對候選文獻表與最終納入清單中每一篇列入 report 的文獻，都強制主動搜尋合法可取得的 PDF，並實際嘗試下載；不得因為已有 abstract、HTML 全文或 metadata 就跳過 PDF 嘗試。依序檢查出版社 PDF、PubMed Central/其他官方存放庫、作者或機構存放庫，以及學校/圖書館授權可讀的 PDF；只使用合法授權存取，不繞過 paywall、CAPTCHA 或 access control。");
         lines.push("只有當檔案確實存在於 output_PDF 且確認為 PDF 時，才可在 report 標示「已下載 — output_PDF/<檔名>.pdf」。候選文獻表與最終納入清單都必須新增「PDF 下載狀態」欄位；任一篇未能取得 PDF 時，該欄必須寫「未下載 — <原因>」，例如無合法全文、需要人工登入/CAPTCHA、出版社僅提供 HTML、連結失效或下載失敗。不得留白、寫「未確認」或用網頁全文冒充已下載。report 還要統計已下載與未下載數量。");
         lines.push("只將確認為 PDF 的文獻永久保留到專案根目錄 output_PDF；Word、RIS、BibTeX、NBIB、轉檔產物與非 PDF 檔仍放在 downloads 暫存區，收尾時刪除。");
+        lines.push("遇到 PubMed Central 文獻時，優先呼叫 cloakbrowser_research 的 resolve_pmc_pdf，以 PMCID 即時解析 PMC 新版 Cloud Service 的 article-version PDF；不得重用先前快取的 OA API FTP 連結。只有新版 Cloud 物件不存在時，才採用本次即時 OA API 回傳的套件，將 2026-04 已搬移的舊路徑修正到 deprecated HTTPS 路徑並從套件解出、驗證 PDF；若兩者都失敗，在 PDF 下載狀態寫「未下載 — PMC 新版 Cloud 與即時 OA 連結皆無可用 PDF」。");
       } else if ($("allowDownloads").checked) {
         lines.push("允許下載 PDF、Word、RIS、BibTeX 或其他實際分析需要的外部文獻檔案。開始瀏覽前，請先呼叫 cloakbrowser_research 的 set_download_policy，設定 mode=temporary。所有下載只能放在專案 downloads 暫存區，任務結束或關閉器執行時必須刪除。");
       } else {
@@ -411,7 +413,9 @@
         })
       });
       const data = await res.json();
-      status(data.ok ? `已開啟測試：${data.target}` : `開啟失敗：${data.error}`);
+      status(data.ok
+        ? (data.reused ? `已在原本頁籤貼上並切換：${data.target}` : `已開啟可重用的 DOI 測試頁籤：${data.target}`)
+        : `開啟失敗：${data.error}`);
     });
 
     $("clean").addEventListener("click", async () => {

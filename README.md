@@ -1,6 +1,8 @@
 # ARS Research Console
 
-Version: 1.0
+Version: 1.1
+
+V1.1 reuses one visible CloakBrowser tab for DOI/URL validation and resolves PMC PDFs from the current Cloud Service article-version dataset before using a freshly queried OA API fallback.
 
 Portable Codex literature-workflow project with:
 
@@ -66,7 +68,7 @@ Run:
 Expected ending:
 
 ```text
-OK: portable deployment v1.0 is installed and verified.
+OK: portable deployment v1.1 is installed and verified.
 ```
 
 ## Quick Install On Windows
@@ -97,7 +99,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\doctor.ps1
 Expected ending:
 
 ```text
-OK: Windows portable deployment v1.0 is installed and verified.
+OK: Windows portable deployment v1.1 is installed and verified.
 ```
 
 Windows start and stop wrappers:
