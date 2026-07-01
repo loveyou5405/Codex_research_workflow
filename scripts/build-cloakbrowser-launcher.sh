@@ -213,5 +213,5 @@ chmod +x "$CLOSE_COMMAND"
 build_native_app "$APP" "CloakBrowser Research Launcher" "research-console-launcher" "launch" ""
 
 if [[ -f "$CLOSE_SOURCE" ]]; then
-  build_native_app "$CLOSE_APP" "Close CloakBrowser Research Sessions" "research-console-closer" "close" "本地控制台、測試瀏覽器、上傳暫存與臨時截圖已清理。v$VERSION"
+  build_native_app "$CLOSE_APP" "Close CloakBrowser Research Sessions" "research-console-closer" "close" "暫存已清理；reports 與 output_PDF 已保留。v$VERSION"
 fi

@@ -1,6 +1,6 @@
 # Windows Install
 
-Version: 0.6
+Version: 1.1
 
 This project now includes a Windows deployment path that mirrors the macOS setup without AppleScript or `.app` launchers.
 
@@ -44,7 +44,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\doctor.ps1
 Expected ending:
 
 ```text
-OK: Windows portable deployment v0.6 is installed and verified.
+OK: Windows portable deployment v1.1 is installed and verified.
 ```
 
 ## Start And Stop
@@ -70,7 +70,11 @@ launchers\Close ARS Research Console.cmd
 ## Notes
 
 - Windows does not use the macOS `.app` launchers.
-- Temporary downloads remain under `downloads\` and uploads under `uploads\`.
+- Downloads remain temporary under `downloads\` unless the HTML console's PDF-preservation option is selected.
+- When PDF preservation is selected, every report paper gets a legal PDF search/download attempt and a `PDF 下載狀態` value; unsuccessful attempts are reported as `未下載` with a reason.
+- Preserved literature PDFs remain under `output_PDF\`; the close workflow never deletes this folder.
+- Uploads remain temporary under `uploads\`.
 - Final reports remain under `reports\`.
+- Candidate-paper tables record a verified DOI link or official article URL for every row.
 - If Codex uses a nonstandard config location, set `CODEX_HOME` before running the installer.
 - If Node is not in PATH, set `CODEX_NODE_PATH` and `CODEX_NPM_PATH` before running the installer.

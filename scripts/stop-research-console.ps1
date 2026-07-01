@@ -37,4 +37,4 @@ if (Test-Path $PidFile) {
 }
 
 Remove-Item (Join-Path $ProjectRoot ".research-console.log") -Force -ErrorAction SilentlyContinue
-Write-Host "Research Console stopped and temporary files cleaned."
+Write-Host "Research Console stopped and temporary files cleaned. reports and output_PDF were preserved."

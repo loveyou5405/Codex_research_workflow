@@ -153,8 +153,8 @@
 </head>
 <body>
   <header>
-    <h1>ARS Research Console <span id="versionBadge">v0.6</span></h1>
-    <div class="sub">填主題、選流程，產生可直接貼給 Codex 的 ARS + CloakBrowser 指令。允許下載外部文獻暫存，關閉時必刪。</div>
+    <h1>ARS Research Console <span id="versionBadge">v1.1</span></h1>
+    <div class="sub">填主題、選流程，產生可直接貼給 Codex 的 ARS + CloakBrowser 指令。候選文獻表固定記錄 DOI 或官方文獻網址。</div>
   </header>
   <main>
     <section>
@@ -191,16 +191,20 @@
 4. 文獻矩陣
 5. 研究缺口
 6. 後續精讀清單
-7. 可丟入 ChatGPT 的 report 深度分析 Prompt</textarea>
+7. 每篇文獻的簡短中文機制摘要
+8. 可丟入 ChatGPT 的 report 深度分析 Prompt</textarea>
 
       <h3>預設規則</h3>
       <div class="checks">
         <label class="check"><input id="useCloak" type="checkbox" checked><span>全程優先使用 cloakbrowser_research，因為我目前在學校授權環境。</span></label>
+        <label class="check"><input id="includeLicensed" type="checkbox" checked><span>搜尋時主動納入可能需付費但學校授權可讀的期刊與出版社頁面，例如 Nature Medicine、Nature 系列、Lancet、NEJM、Science、Cell、Wiley、Springer Nature、Elsevier。</span></label>
         <label class="check"><input id="allowDownloads" type="checkbox" checked><span>允許下載 PDF、Word、RIS、BibTeX 或其他外部文獻檔案到專案 downloads 暫存區。</span></label>
+        <label class="check"><input id="preservePdfs" type="checkbox"><span>強制為 report 中每篇文獻搜尋並嘗試下載 PDF，成功者永久保留到 output_PDF；失敗者在 report 標示「未下載」與原因（預設不勾）。</span></label>
         <label class="check"><input id="markitdownFirst" type="checkbox" checked><span>外部文獻下載後，先判斷是否用 microsoft/markitdown 轉成 Markdown，再閱讀整理。</span></label>
         <label class="check"><input id="smartAsk" type="checkbox" checked><span>遇到 reCAPTCHA / Cloudflare / access check：metadata 足夠就截圖記錄並繼續；只有需要我登入、確認全文授權、處理 CAPTCHA，或核心文獻無法確認時才問我。</span></label>
+        <label class="check"><input id="mechanismSummary" type="checkbox" checked><span>為每一篇納入的文獻撰寫簡短、繁體中文的機制摘要，並區分文獻直接證據與推論。</span></label>
         <label class="check"><input id="chatgptPrompt" type="checkbox" checked><span>output report 末尾附上一段可丟入 ChatGPT 的深度閱讀與謹慎分析 Prompt。</span></label>
-        <label class="check"><input id="cleanup" type="checkbox" checked><span>任務完成後刪除臨時截圖、上傳暫存與下載文獻檔，不刪 reports。</span></label>
+        <label class="check"><input id="cleanup" type="checkbox" checked><span>任務完成後刪除臨時截圖、上傳暫存與 downloads 暫存檔；不刪 reports 或 output_PDF。</span></label>
       </div>
 
       <div class="toolbar">
@@ -216,7 +220,7 @@
 
       <h3>清理 / 關閉</h3>
       <div class="toolbar">
-        <button class="secondary" id="clean">刪除臨時截圖</button>
+        <button class="secondary" id="clean">刪除暫存（保留 output_PDF）</button>
         <button class="danger" id="shutdown">關閉本地控制台並清理</button>
       </div>
       <div class="status" id="status"></div>
@@ -273,14 +277,40 @@
       `).join("");
     }
 
+    function buildRequestedOutputs() {
+      const items = $("outputs").value
+        .split("\n")
+        .map((line) => line.trim().replace(/^\d+\.\s*/, ""))
+        .filter(Boolean)
+        .filter((line) => $("mechanismSummary").checked || line !== "每篇文獻的簡短中文機制摘要");
+      return items.map((item, index) => `${index + 1}. ${item}`).join("\n");
+    }
+
     function buildPrompt() {
       const lines = [];
       const mode = $("mode").value;
       lines.push(`使用 academic-research-suite 的 ${mode} 模式。`);
       if ($("useCloak").checked) lines.push("全程優先使用 cloakbrowser_research，因為我目前在學校授權環境。");
-      if ($("allowDownloads").checked) lines.push("允許下載 PDF、Word、RIS、BibTeX 或其他外部文獻檔案；所有下載只能放在專案 downloads 暫存區，任務結束或關閉器執行時必須刪除，不得保留在 reports。");
-      if ($("markitdownFirst").checked) lines.push("外部文獻下載後，請先判斷是否需要用 microsoft/markitdown 轉成 Markdown 或純文字再閱讀；PDF、Word、PowerPoint、HTML、Excel/CSV、RIS、BibTeX 等若轉換能改善結構化抽取，請先用 .venv/bin/markitdown 處理，再根據轉換結果閱讀整理。");
+      if ($("includeLicensed").checked) lines.push("搜尋策略不要只限 open-access；請主動納入可能需要付費牆但可透過學校/機構授權閱讀的高影響期刊與出版社頁面，例如 Nature Medicine、Nature 系列、The Lancet 系列、NEJM、Science、Cell、Wiley、Springer Nature、Elsevier 與相關學會期刊。只使用合法授權存取，不繞過 paywall、訂閱、CAPTCHA 或 access control。");
+      lines.push("候選文獻表必須新增「DOI / 文獻網址」欄位，並為每一篇候選文獻填寫。優先從該文章本身的 article-level metadata 核對 DOI，以可點擊的標準格式 `https://doi.org/<DOI>` 記錄；只有文獻確實沒有 DOI 時，才改填已核對的官方出版社、PubMed/PMC 或機構存放庫文獻頁網址。若 DOI 與官方文獻網址都無法取得，必須寫「未取得 — <原因>」，不得留白。");
+      lines.push("每個 DOI 都必須核對其解析後的標題、作者與年份和目標文獻一致；不得猜測 DOI、使用搜尋結果頁網址，或從參考文獻清單誤抓其他文章的 DOI。");
+      lines.push("批次核對 DOI / 文獻網址時，必須重用同一個 cloakbrowser_research session 與同一個頁籤，逐筆用 open_url 在原頁籤貼上並導向下一個網址；不得為每篇文獻重啟 Terminal、瀏覽器或新增視窗。整批核對完成後才關閉 session。");
+      if ($("allowDownloads").checked && $("preservePdfs").checked) {
+        lines.push("開始瀏覽前，請先呼叫 cloakbrowser_research 的 set_download_policy，設定 mode=preserve_pdf。對候選文獻表與最終納入清單中每一篇列入 report 的文獻，都強制主動搜尋合法可取得的 PDF，並實際嘗試下載；不得因為已有 abstract、HTML 全文或 metadata 就跳過 PDF 嘗試。依序檢查出版社 PDF、PubMed Central/其他官方存放庫、作者或機構存放庫，以及學校/圖書館授權可讀的 PDF；只使用合法授權存取，不繞過 paywall、CAPTCHA 或 access control。");
+        lines.push("只有當檔案確實存在於 output_PDF 且確認為 PDF 時，才可在 report 標示「已下載 — output_PDF/<檔名>.pdf」。候選文獻表與最終納入清單都必須新增「PDF 下載狀態」欄位；任一篇未能取得 PDF 時，該欄必須寫「未下載 — <原因>」，例如無合法全文、需要人工登入/CAPTCHA、出版社僅提供 HTML、連結失效或下載失敗。不得留白、寫「未確認」或用網頁全文冒充已下載。report 還要統計已下載與未下載數量。");
+        lines.push("只將確認為 PDF 的文獻永久保留到專案根目錄 output_PDF；Word、RIS、BibTeX、NBIB、轉檔產物與非 PDF 檔仍放在 downloads 暫存區，收尾時刪除。");
+        lines.push("遇到 PubMed Central 文獻時，優先呼叫 cloakbrowser_research 的 resolve_pmc_pdf，以 PMCID 即時解析 PMC 新版 Cloud Service 的 article-version PDF；不得重用先前快取的 OA API FTP 連結。只有新版 Cloud 物件不存在時，才採用本次即時 OA API 回傳的套件，將 2026-04 已搬移的舊路徑修正到 deprecated HTTPS 路徑並從套件解出、驗證 PDF；若兩者都失敗，在 PDF 下載狀態寫「未下載 — PMC 新版 Cloud 與即時 OA 連結皆無可用 PDF」。");
+      } else if ($("allowDownloads").checked) {
+        lines.push("允許下載 PDF、Word、RIS、BibTeX 或其他實際分析需要的外部文獻檔案。開始瀏覽前，請先呼叫 cloakbrowser_research 的 set_download_policy，設定 mode=temporary。所有下載只能放在專案 downloads 暫存區，任務結束或關閉器執行時必須刪除。");
+      } else {
+        lines.push("不要下載 PDF 或其他外部文獻檔案；僅使用合法可讀的網頁內容與 metadata。");
+      }
+      if ($("markitdownFirst").checked && ($("allowDownloads").checked || uploadedFiles.length)) lines.push("外部文獻下載或上傳後，請先判斷是否需要用 microsoft/markitdown 轉成 Markdown 或純文字再閱讀；PDF、Word、PowerPoint、HTML、Excel/CSV、RIS、BibTeX 等若轉換能改善結構化抽取，請先用 .venv/bin/markitdown 處理，再根據轉換結果閱讀整理。");
       if ($("smartAsk").checked) lines.push("遇到 reCAPTCHA、Cloudflare、access check 時，若公開 metadata 足夠，請截圖記錄並繼續，不要問我；只有在需要我登入、確認全文授權、處理 CAPTCHA，或核心文獻無法確認時才停下來問我。");
+      if ($("mechanismSummary").checked) {
+        lines.push("為候選文獻表與最終納入清單中的每一篇文獻，都新增「簡短中文機制摘要」欄位。使用繁體中文約 2–4 句（約 80–160 字），交代研究對象/情境、核心分子或細胞機制的因果鏈、以及對表型、抗藥或治療的意義。只能依據已核對的摘要或全文，清楚區分文獻直接證明與作者假說/合理推論；若該文獻沒有足夠機制資訊，明確寫「此文獻未提供足夠的機制證據」，不得自行補寫。");
+        lines.push("機制摘要的風格範例：「肝癌細胞會透過核輸出蛋白（XPO1）將 Rb 蛋白移出細胞核，藉此減弱 Rb 對 E2F 轉錄因子的抑制來維持生長。這屬於蛋白質空間定位的調控；若合併使用 XPO1 抑制劑將 Rb 強制留在核內，可與 CDK4/6 抑制劑產生協同作用，誘發肝癌細胞陷入強烈衰老並產生對 PROTAC 降解藥物的脆弱性。」這只是寫作密度與因果鏈風格示範，不可套用到無關文獻。");
+      }
       if ($("chatgptPrompt").checked) {
         lines.push("output report 末尾請新增一節「可丟入 ChatGPT 的深度分析 Prompt」。這段 Prompt 要讓我可以上傳你的 report 到 ChatGPT 後直接貼上使用，要求 ChatGPT 以非常深入、審慎、逐步檢查的方式閱讀 report、萃取重點、辨識限制、交叉檢查證據、提出後續研究/寫作建議，且不得誇大 report 沒有支持的結論。");
         lines.push("請直接使用或微調以下 Prompt 內容，不要只寫『請 ChatGPT 分析』這種空泛文字：");
@@ -297,7 +327,7 @@
 
 重要規則：不要編造 report 沒有提供的來源或 DOI；若你需要外部知識，請明確標示那是待查證推測。請保持謹慎，寧可指出不確定，也不要給過度確定的結論。」`);
       }
-      if ($("cleanup").checked) lines.push("任務完成後刪除臨時截圖、uploads 上傳暫存、downloads 下載文獻檔與不必要暫存，不刪除 reports。");
+      if ($("cleanup").checked) lines.push("任務完成後刪除臨時截圖、uploads 上傳暫存、downloads 下載/轉檔暫存與不必要暫存；不刪除 reports，也不刪除 output_PDF 中使用者選擇保留的 PDF。");
       lines.push("");
       lines.push(`主題：${$("topic").value.trim() || "（請在這裡填研究主題）"}`);
       if (uploadedFiles.length) {
@@ -311,7 +341,7 @@
         lines.push("若上傳內容包含我自己的論文或草稿，可以在其基礎上做延伸研究、審稿人模擬、修改建議、段落重寫、回覆審稿意見草稿與引用/論證一致性檢查；請清楚區分原文內容、AI 推論與需要外部查證的地方。");
       }
       lines.push("請建立：");
-      lines.push($("outputs").value.trim());
+      lines.push(buildRequestedOutputs());
       return lines.join("\n");
     }
 
@@ -319,6 +349,14 @@
     document.querySelectorAll("input, textarea, select").forEach((el) => {
       el.addEventListener("input", refresh);
       el.addEventListener("change", refresh);
+    });
+    $("preservePdfs").addEventListener("change", () => {
+      if ($("preservePdfs").checked) $("allowDownloads").checked = true;
+      refresh();
+    });
+    $("allowDownloads").addEventListener("change", () => {
+      if (!$("allowDownloads").checked) $("preservePdfs").checked = false;
+      refresh();
     });
     refresh();
 
@@ -369,10 +407,15 @@
       const res = await fetch("/api/open-doi", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ target: $("doi").value })
+        body: JSON.stringify({
+          target: $("doi").value,
+          preservePdfs: $("preservePdfs").checked,
+        })
       });
       const data = await res.json();
-      status(data.ok ? `已開啟測試：${data.target}` : `開啟失敗：${data.error}`);
+      status(data.ok
+        ? (data.reused ? `已在原本頁籤貼上並切換：${data.target}` : `已開啟可重用的 DOI 測試頁籤：${data.target}`)
+        : `開啟失敗：${data.error}`);
     });
 
     $("clean").addEventListener("click", async () => {

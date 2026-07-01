@@ -11,10 +11,12 @@ const bridgeDir = path.join(projectRoot, "mcp/cloakbrowser-research");
 const outputsDir = path.join(bridgeDir, "outputs");
 const uploadsDir = path.join(projectRoot, "uploads");
 const downloadsDir = path.join(projectRoot, "downloads");
-const npmPath = process.env.CODEX_NPM_PATH || path.join(path.dirname(process.execPath), "npm");
+const outputPdfDir = path.join(projectRoot, "output_PDF");
 const nodeBinDir = path.dirname(process.execPath);
 const port = Number(process.env.RESEARCH_CONSOLE_PORT || 8765);
 const versionPath = path.join(projectRoot, "VERSION");
+const doiTestScript = path.join(bridgeDir, "src/open-for-test.js");
+let doiTestProcess = null;
 
 function json(res, status, data) {
   res.writeHead(status, { "content-type": "application/json; charset=utf-8" });
@@ -26,6 +28,50 @@ function normalizeTarget(value) {
   if (!input) return "https://scholar.google.com";
   if (/^https?:\/\//i.test(input)) return input;
   return `https://doi.org/${input.replace(/^doi:/i, "").trim()}`;
+}
+
+function startOrReuseDoiTest(target, downloadMode) {
+  if (doiTestProcess && doiTestProcess.exitCode === null && doiTestProcess.stdin?.writable) {
+    try {
+      doiTestProcess.stdin.write(`${target}\n`);
+      return true;
+    } catch {
+      doiTestProcess = null;
+    }
+  }
+
+  doiTestProcess = spawn(process.execPath, [doiTestScript, target], {
+    cwd: bridgeDir,
+    env: {
+      ...process.env,
+      PATH: `${nodeBinDir}:${process.env.PATH || ""}`,
+      CLOAKBROWSER_RESEARCH_AUTHORIZED: "1",
+      CLOAKBROWSER_HUMANIZE: "1",
+      CLOAKBROWSER_BLOCK_FILE_DOWNLOADS: "0",
+      CLOAKBROWSER_DOWNLOAD_MODE: downloadMode,
+    },
+    stdio: ["pipe", "ignore", "inherit"],
+  });
+  doiTestProcess.once("exit", () => {
+    doiTestProcess = null;
+  });
+  doiTestProcess.stdin.on("error", (error) => {
+    console.error(`DOI test browser input closed: ${error.message || error}`);
+  });
+  doiTestProcess.once("error", (error) => {
+    console.error(`DOI test browser failed: ${error.message || error}`);
+    doiTestProcess = null;
+  });
+  return false;
+}
+
+function stopDoiTest() {
+  if (!doiTestProcess || doiTestProcess.exitCode !== null) return;
+  if (doiTestProcess.stdin?.writable) doiTestProcess.stdin.write("__CLOSE__\n");
+  const child = doiTestProcess;
+  setTimeout(() => {
+    if (child.exitCode === null) child.kill("SIGTERM");
+  }, 1500).unref();
 }
 
 function safeFilename(value, fallback = "upload") {
@@ -190,21 +236,9 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && req.url === "/api/open-doi") {
       const body = await readBody(req);
       const target = normalizeTarget(body.target);
-      const command = [
-        `cd ${JSON.stringify(bridgeDir)}`,
-        `PATH=${JSON.stringify(`${nodeBinDir}:${process.env.PATH || ""}`)}`,
-        "CLOAKBROWSER_RESEARCH_AUTHORIZED=1",
-        "CLOAKBROWSER_HUMANIZE=1",
-        "CLOAKBROWSER_BLOCK_FILE_DOWNLOADS=0",
-        JSON.stringify(npmPath),
-        "run test:open --",
-        JSON.stringify(target),
-      ].join(" ");
-      spawn("osascript", ["-e", `tell application "Terminal" to do script ${JSON.stringify(command)}`], {
-        detached: true,
-        stdio: "ignore",
-      }).unref();
-      json(res, 200, { ok: true, target });
+      const downloadMode = body.preservePdfs ? "preserve_pdf" : "temporary";
+      const reused = startOrReuseDoiTest(target, downloadMode);
+      json(res, 200, { ok: true, target, reused });
       return;
     }
 
@@ -233,6 +267,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === "POST" && req.url === "/api/shutdown") {
+      stopDoiTest();
       const deleted = await cleanupTemporaryFiles();
       json(res, 200, { ok: true, deleted, shutdown: true });
       setTimeout(() => process.exit(0), 250);
@@ -247,6 +282,11 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(port, "127.0.0.1", async () => {
   const pidPath = path.join(projectRoot, ".research-console.pid");
+  await Promise.all([
+    fs.mkdir(downloadsDir, { recursive: true }),
+    fs.mkdir(uploadsDir, { recursive: true }),
+    fs.mkdir(outputPdfDir, { recursive: true }),
+  ]);
   await fs.writeFile(pidPath, String(process.pid));
   console.log(`Research Console listening on http://127.0.0.1:${port}`);
 });

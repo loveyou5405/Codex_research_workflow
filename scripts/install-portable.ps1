@@ -32,6 +32,7 @@ if (-not $Python) { throw "Cannot find Python. Install Python 3 first." }
 
 New-Item -ItemType Directory -Force -Path `
   (Join-Path $ProjectRoot "downloads"), `
+  (Join-Path $ProjectRoot "output_PDF"), `
   (Join-Path $ProjectRoot "uploads"), `
   (Join-Path $ProjectRoot "mcp\cloakbrowser-research\outputs"), `
   (Join-Path $CodexHome "skills") | Out-Null

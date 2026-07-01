@@ -4,10 +4,12 @@
 .research-console-launcher-app.log
 .venv/
 downloads/*
+output_PDF/*
 uploads/*
 launchers/*.app/
 mcp/cloakbrowser-research/node_modules/
 mcp/cloakbrowser-research/outputs/*
 !downloads/.gitkeep
+!output_PDF/.gitkeep
 !uploads/.gitkeep
 !mcp/cloakbrowser-research/outputs/.gitkeep

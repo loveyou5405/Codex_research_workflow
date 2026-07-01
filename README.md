@@ -1,6 +1,8 @@
 # ARS Research Console
 
-Version: 0.6
+Version: 1.1
+
+V1.1 reuses one visible CloakBrowser tab for DOI/URL validation and resolves PMC PDFs from the current Cloud Service article-version dataset before using a freshly queried OA API fallback.
 
 Portable Codex literature-workflow project with:
 
@@ -9,6 +11,10 @@ Portable Codex literature-workflow project with:
 - `cloakbrowser_research` MCP server for authorized academic browsing;
 - `ars-literature-workflow` Codex skill;
 - MarkItDown support for uploaded/downloaded literature files;
+- explicit inclusion of authorized subscription journals and publisher pages during literature search;
+- optional forced per-paper PDF search/download with retained files under `output_PDF/` and explicit not-downloaded report statuses;
+- mandatory verified DOI or official literature URL values for every candidate-paper row;
+- a Traditional Chinese mechanism summary for every candidate and included paper;
 - cleanup rules for temporary downloads, uploads, screenshots, and logs.
 
 ## Quick Install On A New Mac
@@ -62,7 +68,7 @@ Run:
 Expected ending:
 
 ```text
-OK: portable deployment v0.6 is installed and verified.
+OK: portable deployment v1.1 is installed and verified.
 ```
 
 ## Quick Install On Windows
@@ -93,7 +99,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\doctor.ps1
 Expected ending:
 
 ```text
-OK: Windows portable deployment v0.6 is installed and verified.
+OK: Windows portable deployment v1.1 is installed and verified.
 ```
 
 Windows start and stop wrappers:
@@ -115,7 +121,7 @@ Before pushing:
 git status --short
 ```
 
-Commit source files, reports, scripts, launchers, `package.json`, `package-lock.json`, and `.gitkeep` files. Do not commit `.venv/`, `node_modules/`, `downloads/`, `uploads/`, runtime logs, or temporary screenshots.
+Commit source files, reports, scripts, launchers, `package.json`, `package-lock.json`, and `.gitkeep` files. Do not commit `.venv/`, `node_modules/`, `downloads/`, `output_PDF/` contents, `uploads/`, runtime logs, or temporary screenshots.
 
 ## Project Layout
 
@@ -129,8 +135,13 @@ Commit source files, reports, scripts, launchers, `package.json`, `package-lock.
 - `scripts/doctor.ps1`: Windows deployment health check.
 - `scripts/build-cloakbrowser-launcher.sh`: rebuild launcher apps for the current path.
 - `reports/`: final research reports.
-- `downloads/`, `uploads/`, `mcp/cloakbrowser-research/outputs/`: temporary/runtime storage.
+- `output_PDF/`: literature PDFs explicitly selected for permanent preservation.
+- `downloads/`, `uploads/`, `mcp/cloakbrowser-research/outputs/`: temporary/runtime storage deleted by cleanup.
 
 ## Access And Safety
 
-This project is for authorized academic research access only. It does not bypass subscriptions, CAPTCHAs, paywalls, or institutional access controls. Temporary downloaded literature files should stay under `downloads/` and be deleted by the close workflow unless you intentionally preserve them outside the repository.
+This project is for authorized academic research access only. It does not bypass subscriptions, CAPTCHAs, paywalls, or institutional access controls. The default `temporary` policy keeps downloaded literature under `downloads/` and deletes it during cleanup. If you select PDF preservation in the HTML console, the workflow must search for and attempt to download a legal PDF for every paper listed in the report. Detected PDFs are moved to `output_PDF/`; failed acquisitions are recorded as `未下載 — <reason>` in the report. Non-PDF files and MarkItDown conversion artifacts remain temporary. Cleanup never deletes `output_PDF/` or `reports/`.
+
+When you have legitimate school, library, VPN, institutional, or publisher access, searches should include relevant subscription journals and publisher pages instead of limiting discovery to open-access sources. For suitable topics, explicitly check high-impact venues such as Nature Medicine, Nature family journals, The Lancet family, NEJM, Science, Cell, Wiley, Springer Nature, Elsevier, and society journals.
+
+Candidate-paper tables must record a verified `https://doi.org/<DOI>` link for each paper. Papers without a DOI use a verified official article page; unresolved entries must state `未取得 — <reason>` rather than leaving the field blank.
